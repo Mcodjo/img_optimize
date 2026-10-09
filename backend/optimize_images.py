@@ -28,6 +28,7 @@ Dépendances :
 """
 
 import argparse
+import math
 import sys
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageDraw, ImageFont
@@ -231,7 +232,7 @@ def format_size(size_bytes: int) -> str:
     """Formate une taille en Ko ou Mo."""
     if size_bytes >= 1_000_000:
         return f"{size_bytes / 1_000_000:.1f} Mo"
-    return f"{size_bytes / 1_000:.0f} Ko"
+    return f"{max(1, math.ceil(size_bytes / 1_000))} Ko"
 
 
 def check_avif_support() -> bool:
@@ -344,7 +345,7 @@ def apply_watermark(
     mark_content = None
     
     if watermark_params.get("type") == "text":
-        text = watermark_params.get("text", "ImgOpt Branding")
+        text = watermark_params.get("text", "Pixora Branding")
         # Calcul de la taille de police relative (5% de la largeur par défaut)
         font_size = int(w_img * 0.04)
         try:

@@ -126,12 +126,13 @@ def validate_url(url: str) -> str:
     # Protection SSRF : refuser les adresses IP réservées / internes.
     try:
         ip = ipaddress.ip_address(host)
-        for net in _FORBIDDEN_NETWORKS:
-            if ip in net:
-                raise ValueError("URL non autorisée (adresse réservée)")
     except ValueError:
-        # Ce n'est pas une IP littérale : on continue (c'est un nom d'hôte).
-        pass
+        ip = None  # pas une IP littérale : c'est un nom d'hôte
+    if ip is not None:
+        if getattr(ip, "ipv4_mapped", None):
+            ip = ip.ipv4_mapped
+        if any(ip in net for net in _FORBIDDEN_NETWORKS):
+            raise ValueError("URL non autorisée (adresse réservée)")
 
     if not _is_host_allowed(host):
         raise ValueError("Plateforme non supportée")

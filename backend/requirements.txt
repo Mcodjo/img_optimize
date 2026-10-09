@@ -1,8 +1,8 @@
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.12
+python-multipart==0.0.32
 Pillow==11.0.0
 pillow-avif-plugin==1.4.6
 ffmpeg-python==0.2.0
 slowapi==0.1.9
-yt-dlp>=2024.1.0
+yt-dlp==2026.7.4

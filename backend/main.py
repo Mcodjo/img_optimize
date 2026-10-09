@@ -10,11 +10,13 @@ import traceback
 
 # Forcer l'encodage UTF-8 pour Windows
 if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+    for _stream in (sys.stdout, sys.stderr):
+        if hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding='utf-8')
 
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
+from starlette.background import BackgroundTask
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -57,6 +59,19 @@ ALLOWED_ORIGINS = [
 # Upload
 MAX_UPLOAD_SIZE_MB = int(os.environ.get("MAX_UPLOAD_SIZE_MB", "50"))
 MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024
+
+MAX_FILE_SIZE = MAX_UPLOAD_SIZE_BYTES
+MAX_FILES_PER_REQUEST = int(os.environ.get("MAX_FILES_PER_REQUEST", "50"))
+
+# Taille max cumulée des fichiers d'un ZIP généré (Mo)
+MAX_ZIP_SIZE_MB = int(os.environ.get("MAX_ZIP_SIZE_MB", "1024"))
+MAX_ZIP_SIZE_BYTES = MAX_ZIP_SIZE_MB * 1024 * 1024
+
+# Lecture des uploads par blocs
+UPLOAD_CHUNK_SIZE = 1024 * 1024
+
+# Nombre de proxys de confiance devant l'app (ex: 1 sur Render). 0 = ignorer X-Forwarded-For.
+TRUSTED_PROXY_COUNT = int(os.environ.get("TRUSTED_PROXY_COUNT", "0"))
 
 # Téléchargement vidéo par URL
 MAX_DOWNLOAD_SIZE_MB = int(os.environ.get("MAX_DOWNLOAD_SIZE_MB", "500"))
@@ -116,6 +131,8 @@ async def cleanup_old_jobs():
             job = jobs[job_id]
             if job.output_dir.exists():
                 shutil.rmtree(job.output_dir)
+            if job.staging_dir:
+                shutil.rmtree(job.staging_dir, ignore_errors=True)
             jobs.pop(job_id, None)
 
         if to_delete:
@@ -137,10 +154,25 @@ async def lifespan(app: FastAPI):
         cleanup_task.cancel()
 
 
-app = FastAPI(title="ImgOpt API", version="3.1.0", lifespan=lifespan)
+app = FastAPI(title="Pixora API", version="3.1.0", lifespan=lifespan)
 
 # Rate limiting
-limiter = Limiter(key_func=get_remote_address)
+def get_client_ip(request: Request) -> str:
+    """
+    IP réelle du client. Derrière un proxy (Render, ...), l'IP du socket est
+    celle du proxy : on lit X-Forwarded-For en ne faisant confiance qu'aux
+    TRUSTED_PROXY_COUNT dernières entrées (les entrées de gauche sont
+    forgeables par le client).
+    """
+    if TRUSTED_PROXY_COUNT > 0:
+        forwarded = request.headers.get("x-forwarded-for", "")
+        hops = [h.strip() for h in forwarded.split(",") if h.strip()]
+        if len(hops) >= TRUSTED_PROXY_COUNT:
+            return hops[-TRUSTED_PROXY_COUNT]
+    return get_remote_address(request)
+
+
+limiter = Limiter(key_func=get_client_ip)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -167,6 +199,7 @@ class OptimizationJob:
         self.total_videos = 0
 
         # Créer le dossier de sortie avec vérification robuste
+        self.staging_dir: Optional[Path] = None  # uploads bruts en attente de traitement
         self.output_dir = TEMP_DIR / job_id
         try:
             self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -217,6 +250,75 @@ class OptimizationJob:
                 "reduction_percent": round(reduction, 1)
             }
         }
+
+
+async def save_upload_limited(upload: UploadFile, dest: Path, limit: int = MAX_UPLOAD_SIZE_BYTES) -> int:
+    """
+    Écrit un upload sur disque par blocs en s'arrêtant dès que `limit` est
+    dépassé (413) : la taille n'est plus contrôlée après avoir tout chargé en RAM.
+    """
+    size = 0
+    try:
+        with dest.open("wb") as out:
+            while True:
+                chunk = await upload.read(UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Fichier {upload.filename} trop volumineux. Maximum : {limit // (1024 * 1024)} MB."
+                    )
+                out.write(chunk)
+    except BaseException:
+        dest.unlink(missing_ok=True)
+        raise
+    return size
+
+
+def build_zip(job: 'OptimizationJob') -> Path:
+    """
+    Construit le ZIP des résultats dans un fichier temporaire (pas en RAM).
+    Refuse (413) si le total dépasse MAX_ZIP_SIZE_MB.
+    """
+    files = [f for f in job.output_dir.iterdir() if f.is_file()]
+    if not files:
+        raise HTTPException(status_code=404, detail="Aucun fichier optimisé trouvé")
+
+    total = sum(f.stat().st_size for f in files)
+    if total > MAX_ZIP_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Archive trop volumineuse ({total // (1024 * 1024)} MB, maximum {MAX_ZIP_SIZE_MB} MB). "
+                   "Téléchargez les fichiers individuellement."
+        )
+
+    fd, zip_name = tempfile.mkstemp(suffix=".zip", dir=TEMP_DIR)
+    os.close(fd)
+    zip_path = Path(zip_name)
+    try:
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            for file_path in files:
+                # B6: Protection Zip Slip (les noms sont générés par le serveur)
+                safe_name = file_path.name
+                if ".." in safe_name or "/" in safe_name or "\\" in safe_name:
+                    raise HTTPException(status_code=500, detail="Chemin de fichier invalide")
+                zip_file.write(file_path, safe_name)
+    except BaseException:
+        zip_path.unlink(missing_ok=True)
+        raise
+    return zip_path
+
+
+def zip_response(job: 'OptimizationJob') -> FileResponse:
+    zip_path = build_zip(job)
+    return FileResponse(
+        zip_path,
+        media_type="application/zip",
+        filename=f"optimized-images-{job.job_id[:8]}.zip",
+        background=BackgroundTask(zip_path.unlink, missing_ok=True),
+    )
 
 
 @app.get("/api/health")
@@ -349,6 +451,12 @@ async def start_optimization(
     if not image_files and not video_files:
         raise HTTPException(status_code=400, detail="Aucun fichier valide fourni")
 
+    if len(image_files) + len(video_files) > MAX_FILES_PER_REQUEST:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Trop de fichiers. Maximum : {MAX_FILES_PER_REQUEST} par requête."
+        )
+
     # Chaque mode est dédié à un seul type de fichier
     if mode == "optimize_video" and image_files:
         raise HTTPException(status_code=400, detail="Ce mode n'accepte que des vidéos.")
@@ -432,20 +540,19 @@ async def start_optimization(
         # Sauvegarder temporairement le logo si fourni
         if watermark_type == "image" and watermark_logo:
             try:
-                logo_content = await watermark_logo.read(MAX_UPLOAD_SIZE_BYTES + 1)
-                if len(logo_content) > MAX_UPLOAD_SIZE_BYTES:
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"Logo trop volumineux (max {MAX_UPLOAD_SIZE_MB}MB)"
-                    )
                 logo_ext = Path(watermark_logo.filename).suffix.lower()
                 if logo_ext not in SUPPORTED_EXTENSIONS:
                     raise HTTPException(status_code=400, detail="Format de logo non supporté")
 
-                logo_temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=logo_ext, dir=TEMP_DIR)
-                logo_temp_file.write(logo_content)
-                logo_temp_file.close()
-                watermark_params["image_path"] = logo_temp_file.name
+                logo_fd, logo_name = tempfile.mkstemp(suffix=logo_ext, dir=TEMP_DIR)
+                os.close(logo_fd)
+                watermark_params["image_path"] = logo_name
+                try:
+                    await save_upload_limited(watermark_logo, Path(logo_name))
+                except HTTPException as exc:
+                    if exc.status_code == 413:
+                        exc.detail = f"Logo trop volumineux (max {MAX_UPLOAD_SIZE_MB}MB)"
+                    raise
             except HTTPException:
                 raise
             except Exception as e:
@@ -469,24 +576,25 @@ async def start_optimization(
                 detail=f"Qualité vidéo (CRF) pour {codec.upper()} doit être entre {v_min} et {v_max}"
             )
 
-    # Lire tous les fichiers IMMÉDIATEMENT
+    # Écrire les uploads sur disque IMMÉDIATEMENT, par blocs (plafond par fichier)
+    staging_dir = Path(tempfile.mkdtemp(prefix="up_", dir=TEMP_DIR))
     file_data = []
-    for file in (image_files + video_files):
-        try:
-            content = await file.read()
-            # B3: Verifier la taille du fichier
-            if len(content) > MAX_UPLOAD_SIZE_BYTES:
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"Fichier {file.filename} trop volumineux ({len(content) // (1024*1024)} MB). Maximum : {MAX_UPLOAD_SIZE_MB} MB."
-                )
+    try:
+        for n, file in enumerate(image_files + video_files):
+            ext = Path(file.filename).suffix.lower()
+            dest = staging_dir / f"in_{n}{ext}"
+            await save_upload_limited(file, dest)
             file_data.append({
                 "filename": file.filename,
-                "content": content,
+                "path": dest,
                 "is_video": is_video_file(file.filename),
             })
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Erreur lecture fichier {file.filename}: {str(e)}")
+    except HTTPException:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise
+    except Exception as e:
+        shutil.rmtree(staging_dir, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=f"Erreur lecture fichier: {str(e)}")
 
     if not file_data:
         raise HTTPException(status_code=400, detail="Aucun fichier valide fourni")
@@ -494,6 +602,7 @@ async def start_optimization(
     # Créer un nouveau job
     job_id = str(uuid.uuid4())
     job = OptimizationJob(job_id)
+    job.staging_dir = staging_dir
     job.total_files = len(file_data)
     job.total_images = len(image_files)
     job.total_videos = len(video_files)
@@ -666,7 +775,7 @@ async def process_download_async(
         if optimize:
             # 2) Optimisation (réutilise process_single_video)
             await process_single_video(
-                job, {"filename": raw_path.name, "content": raw_path.read_bytes()},
+                job, {"filename": raw_path.name, "path": raw_path},
                 video_codec, video_quality, resolution, max_fps,
                 prefix, start_number, idx=1
             )
@@ -741,17 +850,21 @@ async def process_mixed_async(
     })
 
     # Traiter chaque fichier
-    for idx, file_info in enumerate(file_data, start=1):
-        if file_info["is_video"]:
-            counter = await process_single_video(
-                job, file_info, video_codec, video_quality,
-                resolution, max_fps, prefix, counter, idx
-            )
-        else:
-            counter = await process_single_image(
-                job, file_info, img_format, img_quality, prefix, counter, idx,
-                smoothing, watermark_params, max_size_mo
-            )
+    try:
+        for idx, file_info in enumerate(file_data, start=1):
+            if file_info["is_video"]:
+                counter = await process_single_video(
+                    job, file_info, video_codec, video_quality,
+                    resolution, max_fps, prefix, counter, idx
+                )
+            else:
+                counter = await process_single_image(
+                    job, file_info, img_format, img_quality, prefix, counter, idx,
+                    smoothing, watermark_params, max_size_mo
+                )
+    finally:
+        if job.staging_dir:
+            shutil.rmtree(job.staging_dir, ignore_errors=True)
 
     # Nettoyage du logo temporaire de watermark si nécessaire
     if watermark_params and watermark_params.get("image_path"):
@@ -793,12 +906,8 @@ async def process_single_image(
     temp_input = None
 
     try:
-        # Sauvegarder le fichier temporairement depuis les données en bytes
-        temp_input = TEMP_DIR / f"{uuid.uuid4()}_{file_info['filename']}"
-
-        # Écrire les données directement (pas besoin de await, données déjà en mémoire)
-        with temp_input.open("wb") as buffer:
-            buffer.write(file_info['content'])
+        # Le fichier a déjà été écrit sur disque (upload par blocs)
+        temp_input = Path(file_info['path'])
 
         # Nom du fichier optimisé
         output_filename = f"{prefix}-{counter:02d}{ext}"
@@ -883,11 +992,8 @@ async def process_single_video(
     temp_input = None
 
     try:
-        # Sauvegarder le fichier temporairement
-        temp_input = TEMP_DIR / f"{uuid.uuid4()}_{file_info['filename']}"
-
-        with temp_input.open("wb") as buffer:
-            buffer.write(file_info['content'])
+        # Le fichier a déjà été écrit sur disque (upload par blocs ou téléchargement)
+        temp_input = Path(file_info['path'])
 
         # Nom du fichier optimisé
         output_filename = f"{prefix}-{counter:02d}{ext}"
@@ -1084,43 +1190,24 @@ async def download_file(job_id: str):
     if not job.output_dir.exists():
         raise HTTPException(status_code=404, detail="Aucun fichier optimisé trouvé")
 
-    # Récupérer tous les fichiers
-    files = list(job.output_dir.iterdir())
-    files = [f for f in files if f.is_file()]
+    files = [f for f in job.output_dir.iterdir() if f.is_file()]
 
     if not files:
         raise HTTPException(status_code=404, detail="Aucun fichier optimisé trouvé")
 
-    # Si une seule image : téléchargement direct
+    # Si un seul fichier : téléchargement direct
     if len(files) == 1:
         file_path = files[0]
         return FileResponse(
             file_path,
             media_type="application/octet-stream",
             headers={
-                "Content-Disposition": f"attachment; filename={file_path.name}"
+                "Content-Disposition": f'attachment; filename="{file_path.name}"'
             }
         )
 
-    # Si plusieurs images : créer un ZIP
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for file_path in files:
-            # B6: Protection Zip Slip — s'assurer que le chemin reste dans output_dir
-            safe_name = file_path.name
-            if ".." in safe_name or "/" in safe_name or "\\" in safe_name:
-                raise HTTPException(status_code=500, detail="Chemin de fichier invalide")
-            zip_file.write(file_path, safe_name)
-
-    zip_buffer.seek(0)
-
-    return StreamingResponse(
-        iter([zip_buffer.getvalue()]),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename=optimized-images-{job_id[:8]}.zip"
-        }
-    )
+    # Si plusieurs fichiers : ZIP (fichier temporaire, supprimé après envoi)
+    return zip_response(job)
 
 
 @app.get("/api/download/{job_id}/{filename}")
@@ -1140,6 +1227,12 @@ async def download_single_file(job_id: str, filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Nom de fichier invalide")
 
+    # Seuls les fichiers dont le traitement a réussi sont téléchargeables
+    # (jamais un fichier en cours d'écriture ni un résidu).
+    ready = {m.get("optimized_name") for m in job.progress if m.get("success")}
+    if filename not in ready:
+        raise HTTPException(status_code=404, detail="Fichier non disponible")
+
     file_path = job.output_dir / filename
 
     if not file_path.exists() or not file_path.is_file():
@@ -1149,7 +1242,7 @@ async def download_single_file(job_id: str, filename: str):
         file_path,
         media_type="application/octet-stream",
         headers={
-            "Content-Disposition": f"attachment; filename={filename}"
+            "Content-Disposition": f'attachment; filename="{filename}"'
         }
     )
 
@@ -1167,29 +1260,10 @@ async def download_zip_only(job_id: str):
     if job.status != "completed":
         raise HTTPException(status_code=400, detail="Job pas encore terminé")
 
-    if not job.output_dir.exists() or not list(job.output_dir.iterdir()):
+    if not job.output_dir.exists():
         raise HTTPException(status_code=404, detail="Aucun fichier optimisé trouvé")
 
-    # Créer un ZIP en mémoire
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for file_path in job.output_dir.iterdir():
-            if file_path.is_file():
-                # B6: Protection Zip Slip
-                safe_name = file_path.name
-                if ".." in safe_name or "/" in safe_name or "\\" in safe_name:
-                    raise HTTPException(status_code=500, detail="Chemin de fichier invalide")
-                zip_file.write(file_path, safe_name)
-
-    zip_buffer.seek(0)
-
-    return StreamingResponse(
-        iter([zip_buffer.getvalue()]),
-        media_type="application/zip",
-        headers={
-            "Content-Disposition": f"attachment; filename=optimized-images-{job_id[:8]}.zip"
-        }
-    )
+    return zip_response(job)
 
 
 @app.delete("/api/cleanup/{job_id}")
@@ -1204,6 +1278,9 @@ async def cleanup_job(job_id: str):
     if job.output_dir.exists():
         shutil.rmtree(job.output_dir)
 
+    if job.staging_dir:
+        shutil.rmtree(job.staging_dir, ignore_errors=True)
+
     # Retirer du dictionnaire
     del jobs[job_id]
 
@@ -1214,7 +1291,7 @@ if __name__ == "__main__":
     import uvicorn
 
     print("\n" + "="*60)
-    print("IMGOPT API v3.0 — Images + Vidéos")
+    print("PIXORA API v3.1 — Images + Vidéos")
     print("="*60)
     print(f"Formats image: {', '.join(FORMAT_CONFIG.keys()).upper()}")
     print(f"Codecs vidéo:  {', '.join(CODEC_CONFIG.keys()).upper()}")
