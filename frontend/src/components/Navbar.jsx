@@ -42,11 +42,15 @@ export default function Navbar() {
         >
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 md:gap-3 group transition-transform hover:scale-105 z-[120]">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl md:rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <i className="fa-solid fa-bolt-lightning text-white text-sm md:text-lg group-hover:animate-pulse"></i>
-            </div>
+            <img
+              src="/logo-mark.png"
+              alt=""
+              width="40"
+              height="43"
+              className="h-8 md:h-10 w-auto drop-shadow-[0_0_12px_rgba(113,47,251,0.45)]"
+            />
             <span className="text-lg md:text-xl font-bold text-white tracking-tight">
-              Img<span className="text-violet-400">Opt</span>
+              Pixora
             </span>
           </Link>
 

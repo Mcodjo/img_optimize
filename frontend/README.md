@@ -1,4 +1,4 @@
-# ImgOpt - Frontend
+# Pixora - Frontend
 
 Interface utilisateur pour l'optimisation d'images et videos.
 

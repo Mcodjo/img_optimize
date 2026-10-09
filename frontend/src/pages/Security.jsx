@@ -20,7 +20,7 @@ export default function Security() {
             Securite & <span className="text-gradient">Confidentialite</span>
           </h1>
           <p className="text-xl text-slate-400 font-light leading-relaxed">
-            Pourquoi ImgOpt est la solution la plus sur pour vos assets numeriques.
+            Pourquoi Pixora est la solution la plus sur pour vos assets numeriques.
           </p>
         </div>
 
@@ -66,7 +66,7 @@ export default function Security() {
 
         {/* Technical Explanation */}
         <div className="glass-card gradient-border p-12 rounded-[3rem] bg-white/[0.01]">
-          <h2 className="text-3xl font-bold text-white mb-8 border-b border-white/5 pb-4">La Tech derriere ImgOpt</h2>
+          <h2 className="text-3xl font-bold text-white mb-8 border-b border-white/5 pb-4">La Tech derriere Pixora</h2>
           <div className="space-y-6 text-slate-400">
             <p className="leading-relaxed">
               Nous exploitons la puissance de <strong>FastAPI</strong> et de bibliotheques de traitement d'image de pointe (Pillow)

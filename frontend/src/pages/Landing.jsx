@@ -238,7 +238,7 @@ export default function Landing() {
           <div className="text-center mb-16">
             <span className="text-xs font-bold text-cyan-500 uppercase tracking-[0.3em] mb-4 inline-block">En chiffres</span>
             <h2 className="text-3xl lg:text-5xl font-bold text-white leading-tight">
-              Pourquoi choisir ImgOpt
+              Pourquoi choisir Pixora
             </h2>
           </div>
 
@@ -466,8 +466,9 @@ export default function Landing() {
       <footer className="px-6 py-20 border-t border-white/5 bg-black/50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-12 text-center md:text-left">
           <div>
-            <div className="text-2xl font-bold text-white mb-4">
-              Img<span className="text-violet-500">Opt</span>
+            <div className="flex items-center justify-center md:justify-start gap-3 text-2xl font-bold text-white mb-4">
+              <img src="/logo-mark.png" alt="" width="32" height="35" className="h-8 w-auto" />
+              Pixora
             </div>
             <p className="text-slate-500 max-w-xs">
               L'outil d'optimisation d'images et vidéos le plus rapide et le plus sécurisé, conçu pour les experts du web.
@@ -510,7 +511,7 @@ export default function Landing() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 text-center text-slate-600 text-sm">
-          &copy; {new Date().getFullYear()} Image Optimizer. All rights reserved. Made for speed.
+          &copy; {new Date().getFullYear()} Pixora. All rights reserved. Made for speed.
         </div>
       </footer>
     </div>

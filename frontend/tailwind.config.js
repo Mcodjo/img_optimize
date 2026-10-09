@@ -6,6 +6,19 @@ export default {
   ],
   theme: {
     extend: {
+      colors: {
+        pixora: {
+          night: '#050508',
+          cyan: '#15FBFE',
+          sky: '#0CB1FC',
+          blue: '#2E66FC',
+          violet: '#712FFB',
+          ink: '#F0F8FD',
+        },
+      },
+      backgroundImage: {
+        'pixora-gradient': 'linear-gradient(135deg, #15FBFE 0%, #0CB1FC 40%, #2E66FC 65%, #712FFB 100%)',
+      },
       fontFamily: {
         sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
       },
