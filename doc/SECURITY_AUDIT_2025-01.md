@@ -1,4 +1,14 @@
 # RAPPORT D'AUDIT SÉCURITÉ — img_optimize
+
+> **Mise à jour 2026-10-09** — Les findings 001, 002, 003 et 005 sont corrigés (voir le champ *Statut* de chacun).
+> Restent ouverts : 004 (MIME), 006 (logs), 007 (headers). Le texte et le scoring ci-dessous
+> décrivent l'état **au moment de l'audit** ; seuls les statuts sont à jour.
+>
+> **Corrections hors audit initial (2026-10)** :
+> - `validate_url` : le blocage des IP internes (SSRF) était annulé par un `except ValueError` trop large ; il est désormais effectif (IPv4-mappées IPv6 comprises). L'allowlist de domaines restait le seul rempart.
+> - Téléchargement d'un fichier : seuls les fichiers enregistrés comme résultats réussis du job sont servis (plus de résidus ni de fichier en cours d'écriture).
+> - Nouveau périmètre non couvert par l'audit : `/api/download` (yt-dlp, cookies utilisateur), service `pdf-repair-service`.
+> - Reste à traiter : DNS rebinding / redirections yt-dlp, jobs en mémoire non partagés entre workers.
 **Date**: 2025-01  
 **Auditeur**: DRX-SEC  
 **BRIEF_ID**: 2026-04-03-SEC-001  
@@ -97,7 +107,7 @@ curl -H "Origin: https://evil.com" \
 # Vérifier l'absence du header Access-Control-Allow-Origin: https://evil.com
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ✅ CORRIGÉ — origines lues depuis `CORS_ORIGINS`, méthodes limitées à GET/POST/DELETE, plus de wildcard.
 
 ---
 
@@ -184,7 +194,7 @@ curl -F "files=@big.jpg" http://localhost:8000/api/optimize
 # Doit retourner HTTP 413 Payload Too Large
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ✅ CORRIGÉ — upload écrit sur disque par blocs de 1 Mo avec arrêt à `MAX_UPLOAD_SIZE_MB` (413), `MAX_FILES_PER_REQUEST` (50), ZIP généré sur disque et plafonné par `MAX_ZIP_SIZE_MB`.
 
 ---
 
@@ -228,7 +238,7 @@ pip show python-multipart | grep Version
 # Doit afficher Version: 0.0.13 ou supérieur
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ✅ CORRIGÉ — `python-multipart==0.0.32` (version épinglée).
 
 ---
 
@@ -266,7 +276,7 @@ if mime_type not in ALLOWED_MIME_TYPES:
     )
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ⚠️ NON CORRIGÉ (risque atténué) — validation par extension uniquement ; Pillow/FFmpeg rejettent les contenus invalides.
 
 ---
 
@@ -303,7 +313,7 @@ async def optimize_images(...):
     ...
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ✅ CORRIGÉ — slowapi (10/min sur `/api/optimize` et `/api/download`), clé = IP réelle via `X-Forwarded-For` (`TRUSTED_PROXY_COUNT`).
 
 ---
 
@@ -342,7 +352,7 @@ else:
     logger.error(f"Erreur traitement {file_info['filename']}: {error_detail}")
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ❌ NON CORRIGÉ — `print` + traceback complet ; migrer vers `logging`.
 
 ---
 
@@ -370,7 +380,7 @@ async def add_security_headers(request, call_next):
     return response
 ```
 
-**Statut**: ❌ NON CORRIGÉ
+**Statut**: ❌ NON CORRIGÉ — pas de headers de sécurité ; `TrustedHostMiddleware` importé mais inutilisé.
 
 ---
 
@@ -415,7 +425,7 @@ cd frontend && npm audit
 5. **Stateless**: Pas de base de données = surface d'attaque réduite
 6. **Stack moderne**: Dépendances récentes (FastAPI 0.115, React 18.3)
 7. **Pas de `eval()` ou `exec()`**: Aucune exécution de code arbitraire détectée
-8. **Pas de command injection**: Aucune utilisation de `subprocess`, `os.system()`
+8. **Pas de command injection**: `subprocess` n'est utilisé qu'avec des listes d'arguments (yt-dlp, FFmpeg), jamais `shell=True` ni `os.system()` *(ajouté au périmètre depuis l'audit initial)*
 
 ---
 

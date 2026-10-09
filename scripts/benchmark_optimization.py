@@ -4,19 +4,25 @@ Script de test pour l'optimisation d'images avec mesure de performance.
 
 Usage:
     1. Placer une ou plusieurs images de test dans le dossier 'test_images/'
-    2. Exécuter: python test_optimization.py
+    2. Exécuter: python scripts/benchmark_optimization.py
     3. Vérifier les résultats dans 'test_images/optimized/'
 """
 
 import time
+import os
 import sys
 from pathlib import Path
+
+# Le moteur et le dossier test_images/ vivent dans backend/
+BACKEND_DIR = Path(__file__).resolve().parent.parent / "backend"
+sys.path.insert(0, str(BACKEND_DIR))
+os.chdir(BACKEND_DIR)
 
 # Importer la fonction d'optimisation
 from optimize_images import convert_image, check_avif_support, FORMAT_CONFIG, SUPPORTED_EXTENSIONS
 
 
-def test_optimization():
+def run_benchmark():
     """Teste l'optimisation avec mesure de performance"""
 
     # Créer les dossiers de test
@@ -184,5 +190,5 @@ def test_smoothing():
         print(f"  → Taille: {format_size(after)} (Gain: {(1-after/before)*100:.1f}%)")
 
 if __name__ == "__main__":
-    test_optimization()
+    run_benchmark()
     test_smoothing()

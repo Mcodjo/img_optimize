@@ -1,6 +1,6 @@
-# 🗺️ Parcours Utilisateur - Image Optimizer
+# 🗺️ Parcours Utilisateur - Pixora
 
-Guide complet du parcours utilisateur dans l'application Image Optimizer.
+Guide complet du parcours utilisateur dans l'application Pixora.
 
 ---
 

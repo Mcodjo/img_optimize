@@ -2,7 +2,7 @@
 
 | Nom | Objectif | Type | Statut | Dernière maj |
 |-----|----------|------|--------|-------------|
-| CASE-optim-v1.drawio | Parcours utilisateur principal (Upload -> Branding -> Export) | UML UseCase | À faire | 01/04/2026 |
+| UseCase-optim-v1.drawio | Parcours utilisateur principal (Upload -> Branding -> Export) | UML UseCase | À faire | 01/04/2026 |
 | CLASS-backend-v1.drawio | Structure backend Python (Moteur Pillow + API FastAPI) | UML Classe | À faire | 01/04/2026 |
 | MCD-optim-v1.drawio | Modèle conceptuel des données (Gestion des jobs & configurations) | Merise MCD | À faire | 01/04/2026 |
 | BATCH-watermark-v1.drawio | Flux de traitement en parallèle (Compression + Signature) | UML Activité | Fait | 01/04/2026 |

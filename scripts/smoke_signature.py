@@ -5,8 +5,9 @@ import json
 from pathlib import Path
 
 # Tester avec curl plutôt que Python
-test_img = Path('backend/test_images/sample_01.jpg')
-logo_path = Path('frontend/public/logo.png')
+ROOT = Path(__file__).resolve().parent.parent
+test_img = ROOT / 'backend' / 'test_images' / 'sample_01.jpg'
+logo_path = ROOT / 'frontend' / 'public' / 'logo-mark.png'
 
 if not test_img.exists():
     print(f'❌ Image de test non trouvée: {test_img}')
@@ -41,7 +42,7 @@ cmd = [
     '-F', 'prefix=test',
     '-F', 'watermark_enabled=true',
     '-F', 'watermark_type=text',
-    '-F', 'watermark_text=ImgOpt 2026',
+    '-F', 'watermark_text=Pixora 2026',
     '-F', 'watermark_position=bottom-right',
     '-F', 'watermark_opacity=50',
     '-v'

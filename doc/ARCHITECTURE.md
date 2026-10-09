@@ -1,7 +1,7 @@
 # ARCHITECTURE — img_optimize
 
 ## Vision système
-ImgOpt est un automate multi-fonctionnalité haute performance pour :
+Pixora est un automate multi-fonctionnalité haute performance pour :
 1. **Optimisation d'images** : Compresser massivement des visuels tout en appliquant une identité visuelle (Watermarking) en un clic, garantissant protection et uniformité sur les réseaux sociaux (images simples et carrousels).
 2. **Réparation de PDFs** : Valider et réparer les fichiers PDF corrompus en reconstructuisant la structure interne (xref table) et supprimant les objets invalides.
 

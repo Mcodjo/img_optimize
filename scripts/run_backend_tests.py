@@ -3,17 +3,21 @@
 Script de lancement de la suite de tests img_optimize backend
 
 Usage:
-    python run_tests.py                    # Tests complets avec couverture
-    python run_tests.py --quick            # Tests rapides sans couverture
-    python run_tests.py --security         # Tests sécurité uniquement
-    python run_tests.py --unit             # Tests unitaires uniquement
-    python run_tests.py --coverage-only    # Génération rapport couverture uniquement
+    python scripts/run_backend_tests.py                    # Tests complets avec couverture
+    python scripts/run_backend_tests.py --quick            # Tests rapides sans couverture
+    python scripts/run_backend_tests.py --security         # Tests sécurité uniquement
+    python scripts/run_backend_tests.py --unit             # Tests unitaires uniquement
+    python scripts/run_backend_tests.py --coverage-only    # Génération rapport couverture uniquement
 """
 
 import sys
 import subprocess
 from pathlib import Path
 import argparse
+import os
+
+# pytest.ini et .coveragerc sont dans backend/
+os.chdir(Path(__file__).resolve().parent.parent / "backend")
 
 
 def run_command(cmd: list, description: str) -> int:

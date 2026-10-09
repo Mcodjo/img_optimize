@@ -5,46 +5,36 @@
 ## Architecture du système
 
 DRX est un système multi-agents d'ingénierie logicielle à orchestration hiérarchique.
-L'agent principal `drx` orchestre tous les sous-agents ci-dessous.
+L'agent principal `drx` orchestre les sous-agents ci-dessous.
 
-| Agent | Rôle | Fichier |
-|---|---|---|
-| `drx` | Orchestrateur principal | `.opencode/agents/drx.md` |
-| `drx-arch` | Architecture & patterns | `.opencode/agents/drx-arch.md` |
-| `drx-code` | Production de code | `.opencode/agents/drx-code.md` |
-| `drx-design` | UI/UX & direction artistique | `.opencode/agents/drx-design.md` |
-| `drx-sec` | Sécurité offensive & audit | `.opencode/agents/drx-sec.md` |
-| `drx-test` | Tests & couverture qualité | `.opencode/agents/drx-test.md` |
-| `drx-perf` | Performance & profiling | `.opencode/agents/drx-perf.md` |
-| `drx-api` | Contrats API REST/GraphQL | `.opencode/agents/drx-api.md` |
-| `drx-data` | Modélisation & migrations data | `.opencode/agents/drx-data.md` |
-| `drx-deploy` | CI/CD & déploiement | `.opencode/agents/drx-deploy.md` |
-| `drx-doc` | Documentation technique | `.opencode/agents/drx-doc.md` |
-| `drx-infra` | Infrastructure & IaC | `.opencode/agents/drx-infra.md` |
-| `drx-mobile` | Mobile React Native / PWA | `.opencode/agents/drx-mobile.md` |
-| `drx-monitor` | Observabilité & alerting | `.opencode/agents/drx-monitor.md` |
-| `drx-seo` | SEO technique & on-page | `.opencode/agents/drx-seo.md` |
-| `drx-drawio-merise` | Diagrammes MERISE Draw.io | `.opencode/agents/drx-drawio-merise.md` |
-| `drx-drawio-uml` | Diagrammes UML Draw.io | `.opencode/agents/drx-drawio-uml.md` |
+Agents réellement présents dans le dépôt (`.github/agents/`) :
 
----
+| Agent | Rôle | Fichier | Skill associé |
+|---|---|---|---|
+| `drx` | Orchestrateur principal | `.github/agents/drx.agent.md` | — |
+| `drx-design` | UI/UX & direction artistique | `.github/agents/drx-design.agent.md` | `.github/skills/drx-design/SKILL.md` |
+| `drx-sec` | Sécurité offensive & audit | `.github/agents/drx-sec.agent.md` | `.github/skills/drx-sec/SKILL.md` |
+| `drx-test` | Tests & couverture qualité | `.github/agents/drx-test.agent.md` | `.github/skills/drx-test/SKILL.md` |
+| `drx-perf` | Performance & profiling | `.github/agents/drx-perf.agent.md` | `.github/skills/drx-perf/SKILL.md` |
+| `drx-doc` | Documentation technique | `.github/agents/drx-doc.agent.md` | `.github/skills/drx-doc/SKILL.md` |
+| `drx-drawio-merise` | Diagrammes MERISE Draw.io | `.github/agents/drx-drawio-merise.agent.md` | `.github/skills/drawio-merise/SKILL.md` |
+| `drx-drawio-uml` | Diagrammes UML Draw.io | `.github/agents/drx-drawio-uml.agent.md` | `.github/skills/drawio-uml/SKILL.md` |
 
-## Utilisation dans OpenCode CLI
+Les rôles `drx-arch`, `drx-code`, `drx-api`, `drx-data`, `drx-deploy`, `drx-infra`, `drx-mobile`,
+`drx-monitor` et `drx-seo` sont prévus par le système DRX mais **n'ont pas de fichier dans ce dépôt** :
+l'orchestrateur `drx` traite ces sujets lui-même.
 
-```bash
-# Activer l'orchestrateur principal
-/agent drx
+Les instructions générales (rôle, style, revue de code) sont dans `.github/copilot-instructions.md`
+(modèle : `.github/templates/copilot-instructions.template.md`).
 
-# Activer un sous-agent directement
-/agent drx-code
-/agent drx-design
-/agent drx-sec
+## Utilisation
 
-# Charger un skill manuellement
-/context .opencode/skills/drx-code/SKILL.md
-```
+- **GitHub Copilot (VS Code)** : sélectionner l'agent dans le sélecteur de modes (fichiers `*.agent.md`).
+- **Claude Code** : ce fichier `AGENTS.md` est lu automatiquement ; les skills sont consultables en
+  lisant le `SKILL.md` correspondant.
 
 ## Mémoire et propositions
 
-- `.opencode/drx-memory.md` — Décisions passées, contexte projet persistant
-- `.opencode/drx-proposals.md` — Propositions d'amélioration du système DRX
+Les fichiers de mémoire DRX (`.opencode/drx-memory.md`, `.opencode/drx-proposals.md`) ne sont pas
+versionnés (`.opencode` est dans `.gitignore`). Les décisions durables du projet sont dans
+`doc/DECISIONS/` (ADR) et `doc/BACKLOG.md`.

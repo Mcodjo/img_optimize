@@ -1,6 +1,6 @@
-# 🖼️ ImgOpt API - Documentation Technique Detailed
+# 🖼️ Pixora API - Documentation Technique Detailed
 
-Bienvenue dans la documentation officielle de l'API **ImgOpt**. Ce service est conçu pour l'optimisation massive d'images, le renommage SEO et la conversion vers des formats de nouvelle génération (WebP, AVIF).
+Bienvenue dans la documentation officielle de l'API **Pixora**. Ce service est conçu pour l'optimisation massive d'images, le renommage SEO et la conversion vers des formats de nouvelle génération (WebP, AVIF).
 
 ## 🚀 Vue d'Ensemble
 

@@ -1,7 +1,7 @@
 # TESTS — img_optimize
 
 ## Stratégie de test
-- Tests unitaires sur la logique d’optimisation (backend/test_optimization.py)
+- Tests unitaires sur la logique d’optimisation (scripts/benchmark_optimization.py)
 - Tests d’intégration sur l’API (upload, traitement, réponse)
 - Tests manuels sur le frontend (upload, affichage, logs)
 

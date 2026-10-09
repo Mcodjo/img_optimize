@@ -52,7 +52,7 @@ pip install Pillow pillow-avif-plugin
 ### Étape 3: Lancer le test
 
 ```bash
-python test_optimization.py
+python scripts/benchmark_optimization.py
 ```
 
 ### Étape 4: Analyser les résultats
@@ -158,7 +158,7 @@ uvicorn main:app --reload --port 8000
 2. ✅ Vérifier que les tests passent
 3. ✅ Commit et push vers GitHub:
    ```bash
-   git add backend/optimize_images.py backend/test_optimization.py
+   git add backend/optimize_images.py scripts/benchmark_optimization.py
    git commit -m "perf: add intelligent pre-dimensioning for 75% faster optimization
 
    - Add estimate_target_dimensions() function to calculate optimal dimensions upfront

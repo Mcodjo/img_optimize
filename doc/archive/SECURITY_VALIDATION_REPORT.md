@@ -1,5 +1,5 @@
 # 📋 RAPPORT DE VALIDATION DES CORRECTIONS DE SÉCURITÉ
-## Backend Image Optimizer - Audit Complet
+## Backend Pixora - Audit Complet
 
 **Date d'audit:** 2025  
 **Statut:** ✅ **VALIDÉ**  
