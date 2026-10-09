@@ -57,3 +57,23 @@ Thumbs.db
 .env.*.local
 
 .opencode
+# Coverage / rapports de test
+.coverage
+coverage.json
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# Bases de données locales
+*.sqlite3
+*.db
+
+# Images de test / dumps à la racine
+backend/e2e_test.jpg
+/*.jpg
+
+# Outillage local / références
+branding/references/
+.superpowers/
+.claude/settings.local.json
+.playwright-mcp/
