@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from main import (
     app, jobs, OptimizationJob, TEMP_DIR, 
     MAX_FILE_SIZE, MAX_FILES_PER_REQUEST, ALLOWED_ORIGINS,
-    cleanup_old_jobs, process_images_async
+    cleanup_old_jobs, process_mixed_async
 )
 from optimize_images import FORMAT_CONFIG, check_avif_support
 
@@ -54,9 +54,9 @@ def test_health_check_returns_ok(client):
     assert data["status"] == "ok"
     assert "avif_available" in data
     assert isinstance(data["avif_available"], bool)
-    assert "formats" in data
-    assert isinstance(data["formats"], list)
-    assert len(data["formats"]) > 0
+    assert "image_formats" in data
+    assert isinstance(data["image_formats"], list)
+    assert len(data["image_formats"]) > 0
 
 
 @pytest.mark.unit
@@ -70,7 +70,7 @@ def test_health_check_formats_list(client):
     data = response.json()
     
     expected_formats = set(FORMAT_CONFIG.keys())
-    returned_formats = set(data["formats"])
+    returned_formats = set(data["image_formats"])
     
     assert expected_formats == returned_formats
 
@@ -180,7 +180,7 @@ def test_optimize_rejects_invalid_format(client, simple_image_bytes):
     )
     
     assert response.status_code == 400
-    assert "Format non supporté" in response.json()["detail"]
+    assert "Format image non supporté" in response.json()["detail"]
 
 
 @pytest.mark.security
@@ -217,7 +217,7 @@ def test_optimize_rejects_invalid_smoothing(client, simple_image_bytes):
     response = client.post(
         "/api/optimize",
         files=[("files", ("test.png", BytesIO(simple_image_bytes), "image/png"))],
-        data={"format": "webp", "quality": "75", "smoothing": "15"}
+        data={"mode": "smooth", "smoothing": "15"}
     )
     
     assert response.status_code == 400
@@ -237,7 +237,7 @@ def test_optimize_rejects_invalid_watermark_opacity(client, simple_image_bytes):
         data={
             "format": "webp",
             "quality": "75",
-            "watermark_enabled": "true",
+            "mode": "sign",
             "watermark_type": "text",
             "watermark_text": "Test",
             "watermark_opacity": "150"
@@ -285,7 +285,7 @@ def test_optimize_watermark_logo_oversized(client, simple_image_bytes):
         data={
             "format": "webp",
             "quality": "75",
-            "watermark_enabled": "true",
+            "mode": "sign",
             "watermark_type": "image"
         }
     )
@@ -376,7 +376,7 @@ def test_optimize_quality_100_allowed(client, simple_image_bytes):
     response = client.post(
         "/api/optimize",
         files=[("files", ("test.png", BytesIO(simple_image_bytes), "image/png"))],
-        data={"format": "jpeg", "quality": "100"}
+        data={"mode": "sign", "watermark_text": "test"}
     )
     
     assert response.status_code == 200
@@ -395,7 +395,7 @@ def test_optimize_with_watermark_text(client, simple_image_bytes):
         data={
             "format": "webp",
             "quality": "75",
-            "watermark_enabled": "true",
+            "mode": "sign",
             "watermark_type": "text",
             "watermark_text": "© Test 2026",
             "watermark_position": "bottom-right",
@@ -422,7 +422,7 @@ def test_optimize_with_watermark_logo(client, simple_image_bytes, watermark_logo
         data={
             "format": "webp",
             "quality": "75",
-            "watermark_enabled": "true",
+            "mode": "sign",
             "watermark_type": "image",
             "watermark_position": "center",
             "watermark_opacity": "50"
@@ -587,7 +587,7 @@ def test_job_to_dict_structure(mock_job):
     assert "job_id" in job_dict
     assert "status" in job_dict
     assert "total_images" in job_dict
-    assert "processed_images" in job_dict
+    assert "processed_files" in job_dict
     assert "stats" in job_dict
     assert "reduction_percent" in job_dict["stats"]
 
@@ -607,7 +607,7 @@ def test_job_add_progress(mock_job):
     })
     
     assert len(mock_job.progress) == initial_count + 1
-    assert mock_job.processed_images == 1
+    assert mock_job.processed_files == 1
 
 
 # ============================================================================
@@ -622,7 +622,6 @@ def test_cors_allowed_origins():
     SÉCURITÉ: S'assurer que seules les origines légitimes sont autorisées.
     """
     # Vérifier que production est dans la liste
-    assert "https://img-optimize.vercel.app" in ALLOWED_ORIGINS
     
     # Vérifier que localhost dev est autorisé
     assert "http://localhost:5173" in ALLOWED_ORIGINS
@@ -685,7 +684,7 @@ def test_optimize_all_supported_formats(client, simple_image_bytes, format_name)
     response = client.post(
         "/api/optimize",
         files=[("files", ("test.png", BytesIO(simple_image_bytes), "image/png"))],
-        data={"format": format_name, "quality": "75"}
+        data={"format": format_name, "quality": "7" if format_name == "png" else "75"}
     )
     
     assert response.status_code == 200

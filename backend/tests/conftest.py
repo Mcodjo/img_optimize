@@ -405,3 +405,11 @@ def get_image_info(image_bytes: bytes) -> Dict:
         "height": img.height,
         "mode": img.mode
     }
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Le rate limiter (10/min) est global : le remettre à zéro entre les tests."""
+    from main import limiter
+    limiter.reset()
+    yield

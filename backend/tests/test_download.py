@@ -5,6 +5,7 @@ Teste la validation, la sécurité (SSRF, allowlist) et le flux de job.
 """
 
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch, AsyncMock
 
@@ -121,6 +122,11 @@ def test_download_full_flow_success(client, tmp_path):
             assert response.status_code == 200
             data = response.json()
             assert "job_id" in data
+            # La tâche de fond démarre après la réponse : attendre son appel
+            for _ in range(50):
+                if mock_dl.called:
+                    break
+                time.sleep(0.05)
             mock_dl.assert_called_once()
             # Le job async s'exécute en arrière-plan ; on vérifie au moins
             # que l'appel de téléchargement a été déclenché.

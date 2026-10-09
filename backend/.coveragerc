@@ -16,6 +16,7 @@ omit =
     conftest.py
     run_tests.py
     setup.py
+    test_optimization.py
 
 # Branches à suivre (if/else)
 branch = True

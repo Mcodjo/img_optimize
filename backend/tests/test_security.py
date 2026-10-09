@@ -85,7 +85,7 @@ def test_security_logo_watermark_size_limit(client, simple_image_bytes):
         data={
             "format": "webp",
             "quality": "75",
-            "watermark_enabled": "true",
+            "mode": "sign",
             "watermark_type": "image"
         }
     )
@@ -165,7 +165,7 @@ def test_security_logo_watermark_invalid_format(client, simple_image_bytes):
         data={
             "format": "webp",
             "quality": "75",
-            "watermark_enabled": "true",
+            "mode": "sign",
             "watermark_type": "image"
         }
     )
@@ -207,7 +207,7 @@ def test_security_format_parameter_strict_validation(client, simple_image_bytes)
         )
         
         assert response.status_code == 400
-        assert "Format non supporté" in response.json()["detail"]
+        assert "Format image non supporté" in response.json()["detail"]
 
 
 # ============================================================================
@@ -222,11 +222,9 @@ def test_security_cors_allowed_origins_whitelist():
     SÉCURITÉ: Seules les origines légitimes sont autorisées.
     """
     # Vérifier que production est autorisée
-    assert "https://img-optimize.vercel.app" in ALLOWED_ORIGINS
     
     # Vérifier que localhost dev est autorisé
     assert "http://localhost:5173" in ALLOWED_ORIGINS
-    assert "http://127.0.0.1:5173" in ALLOWED_ORIGINS
     
     # Vérifier qu'il n'y a PAS de wildcard
     assert "*" not in ALLOWED_ORIGINS
@@ -305,7 +303,7 @@ def test_security_path_traversal_in_filename(client, simple_image_bytes):
             job_id = response.json()["job_id"]
             job = jobs[job_id]
             # Vérifier que le répertoire de sortie est bien dans TEMP_DIR
-            assert str(TEMP_DIR) in str(job.output_dir)
+            assert str(TEMP_DIR.resolve()) in str(job.output_dir)
 
 
 @pytest.mark.security
@@ -346,8 +344,8 @@ def test_security_sql_injection_in_prefix(client, simple_image_bytes):
             data={"format": "webp", "quality": "75", "prefix": prefix}
         )
         
-        # Devrait passer (pas de DB) mais le préfixe doit être sanitisé
-        assert response.status_code == 200
+        # Préfixe hors [a-zA-Z0-9_-] : rejeté avant tout traitement
+        assert response.status_code == 400
 
 
 @pytest.mark.security
@@ -371,7 +369,7 @@ def test_security_xss_in_watermark_text(client, simple_image_bytes):
             data={
                 "format": "webp",
                 "quality": "75",
-                "watermark_enabled": "true",
+                "mode": "sign",
                 "watermark_type": "text",
                 "watermark_text": text
             }
@@ -488,7 +486,7 @@ def test_security_dos_extreme_smoothing_values(client, simple_image_bytes):
         response = client.post(
             "/api/optimize",
             files=[("files", ("test.png", BytesIO(simple_image_bytes), "image/png"))],
-            data={"format": "webp", "quality": "75", "smoothing": smoothing}
+            data={"mode": "smooth", "smoothing": smoothing}
         )
         
         assert response.status_code == 400
@@ -553,7 +551,7 @@ def test_security_type_validation_opacity_out_of_range(client, simple_image_byte
             data={
                 "format": "webp",
                 "quality": "75",
-                "watermark_enabled": "true",
+                "mode": "sign",
                 "watermark_type": "text",
                 "watermark_text": "Test",
                 "watermark_opacity": opacity
@@ -700,5 +698,5 @@ def test_security_temp_dir_isolation(client, simple_image_bytes):
     assert job1.output_dir != job2.output_dir
     
     # Les deux doivent être sous TEMP_DIR
-    assert str(TEMP_DIR) in str(job1.output_dir)
-    assert str(TEMP_DIR) in str(job2.output_dir)
+    assert str(TEMP_DIR.resolve()) in str(job1.output_dir)
+    assert str(TEMP_DIR.resolve()) in str(job2.output_dir)

@@ -12,6 +12,7 @@ Ce module teste:
 - Helpers (format_size, check_avif_support)
 """
 
+import os
 import pytest
 from io import BytesIO
 from pathlib import Path
@@ -215,7 +216,8 @@ def test_convert_image_size_reduction_reduces_dimensions(temp_input_dir, temp_ou
     """
     # Grande image haute qualité
     input_path = temp_input_dir / "huge.png"
-    img = Image.new('RGB', (2000, 2000), color=(200, 100, 50))
+    # Bruit aléatoire : incompressible, donc la limite force à réduire les dimensions
+    img = Image.frombytes('RGB', (2000, 2000), os.urandom(2000 * 2000 * 3))
     img.save(input_path, format='PNG')
     
     output_path = temp_output_dir / "tiny.jpg"
