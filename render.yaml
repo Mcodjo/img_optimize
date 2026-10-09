@@ -2,17 +2,19 @@ services:
   # Service Backend API (optimisation d'images)
   - type: web
     name: img-optimize-api
-    env: python
+    env: docker
     region: frankfurt
     plan: free
-    buildCommand: "apt-get update && apt-get install -y ffmpeg && pip install -r backend/requirements.txt"
-    startCommand: "cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    # Docker : seul moyen d'installer FFmpeg sur Render (pas d'apt-get en build natif)
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /api/health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
       - key: PORT
         generateValue: true
+      # Render place 1 proxy devant l'app : lire l'IP client dans X-Forwarded-For
+      - key: TRUSTED_PROXY_COUNT
+        value: 1
       - key: CORS_ORIGINS
         value: https://img-optimize-flame.vercel.app
       - key: MAX_DOWNLOAD_SIZE_MB

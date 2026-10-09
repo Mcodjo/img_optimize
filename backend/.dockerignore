@@ -1,0 +1,9 @@
+tests/
+htmlcov/
+test_images/
+__pycache__/
+*.pyc
+.coverage
+coverage.*
+.env
+venv/
